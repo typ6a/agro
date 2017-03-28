@@ -14,16 +14,31 @@ class GetBellsonCategoriesController extends Controller
 
     public function execute()
     {
-        $base_url = 'http://bellson-shop.com.ua';
-        $html = file_get_contents($base_url);
-        $html = preg_replace('#<script(.*?)>(.*?)</script>#is', '', $html);
-        $this->crawler = new Crawler($html);
-        self::parseCategories();
+       
+        $categories = $this->parseCategories();
+        foreach ($categories as $category) {
+        	 // pre($category,1);
+            $this->parseProducts($category);
+        }
+        // pre("$categories",1);
+        
     }
 
     protected function parseCategories()
     {
-        $categories = [];
+    	$categories = [];
+    	$base_url = 'http://bellson-shop.com.ua';
+        $htmlFilePath = '../storage/categories.html';
+        if (!file_exists($htmlFilePath)){
+	        $html = file_get_contents($base_url);
+	        $html = preg_replace('#<script(.*?)>(.*?)</script>#is', '', $html);
+	        file_put_contents($htmlFilePath, $html);
+        }
+        else {
+        	$html = file_get_contents($htmlFilePath);
+	        $html = preg_replace('#<script(.*?)>(.*?)</script>#is', '', $html);
+        }
+        $this->crawler = new Crawler($html);
         $items = $this->crawler->filter('.box .centerbox .XDCategoryGroupsBlocks.autoSpacing a.menu-cat-link');
 		if ($items->count()) {
             $items->each(function (Crawler $category) use (&$categories){
@@ -34,35 +49,67 @@ class GetBellsonCategoriesController extends Controller
                     'url' => $url,
                     'name' => $name
                 ];
-                pre($categories);
             });
         }
+// pre($categories,1);
         return $categories;
  	}
-// ')
+// 
+ 	protected function parseProducts($category)
+ 	{
+ 		$products = [];
+ 		$base_url = 'http://bellson-shop.com.ua/LED_lamps/?page=';
+ 		for ($page = 1; $page <=2; $page++){
+	 		$htmlFilePath = '../storage/'. $category['name'] . ' page ' . $page . '.html';
+	 		// pre($htmlFilePath,1);
+	        if (!file_exists($htmlFilePath)){
+		        $html = file_get_contents($base_url . $page);
+		        $html = preg_replace('#<script(.*?)>(.*?)</script>#is', '', $html);
+		        file_put_contents($htmlFilePath, $html);
+	        }
+	        else {
+	        	$html = file_get_contents($htmlFilePath);
+		        $html = preg_replace('#<script(.*?)>(.*?)</script>#is', '', $html);
+	        }
+	        $products[] = [
+	        	'category' => $category['name'],
+	        	'categoryPage' => $page,
+	         ];
+
+	        $this->crawler = new Crawler($html);
+	        $items = $this->crawler->filter('.product-grid div .product');
+			if ($items->count()) {
+	            $items->each(function (Crawler $product) use (&$products){
+					$url   = $product->filter('.imagestik a')->attr('href');
+					$name  = $product->filter('.name')->text();
+					$model = $product->filter('.model')->text();
+					if ($product->filter('#pcr .price') != null){
+						$oldPrice = trim($product->filter('#pcr .price')->text());
+						$newPrice = trim($product->filter('#pcr .price')->text());
+					}
+					elseif ($product->filter('#pcr .price')->text()) {
+						$oldPrice = trim($product->filter('#pcr .price .price-old')->text());
+						$newPrice = trim($product->filter('#pcr .price .price-new')->text());
+					}
+	                $products[] = [
+	                    'url' => $url,
+	                    'name' => $name,
+	                    'model' => $model,
+	                    'oldPrice' => $oldPrice,
+	                    'newPrice' => $newPrice,
+	                ];
+	            });
+	        }
+        }
+					pre($products);
+        return $products;
+ 		
+ 	}
         
         //pre($propertyAddress, 1);
     
 
-    protected function parseCategoriesUrls()
-    {
-        $categories = [];
-        $items = $this->crawler->filter('.box .centerbox .XDCategoryGroupsBlocks.autoSpacing a.menu-cat-link')->attr('href');
-// pre($items,1);
-        foreach ($items as $item) {
-        	$categoryUrl = $item;
-			$categories[] = [
-				'url' => $categoryUrl,
-			];	        	
-        }
-        pre($categories,1);
-        pre($categories);
-        foreach ($urls as $url) {
-        	$categoryUrl = $url;
-			$categories[] = [
-			];	        	
-    	}
-	}    
+   
     protected function parsePropertySummary()
     {
         $propertySummary = [];
