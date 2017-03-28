@@ -16,11 +16,7 @@ class GetBellsonCategoriesController extends Controller
     {
        
         $categories = $this->parseCategories();
-        foreach ($categories as $category) {
-        	 // pre($category,1);
-            $this->parseProducts($category);
-        }
-        // pre("$categories",1);
+        $products = $this->parseProducts($categories);
         
     }
 
@@ -51,58 +47,68 @@ class GetBellsonCategoriesController extends Controller
                 ];
             });
         }
-// pre($categories,1);
+ // pre($categories,1);
         return $categories;
  	}
 // 
- 	protected function parseProducts($category)
+ 	protected function parseProducts($categories)
  	{
  		$products = [];
- 		$base_url = 'http://bellson-shop.com.ua/LED_lamps/?page=';
- 		for ($page = 1; $page <=2; $page++){
-	 		$htmlFilePath = '../storage/'. $category['name'] . ' page ' . $page . '.html';
-	 		// pre($htmlFilePath,1);
-	        if (!file_exists($htmlFilePath)){
-		        $html = file_get_contents($base_url . $page);
-		        $html = preg_replace('#<script(.*?)>(.*?)</script>#is', '', $html);
-		        file_put_contents($htmlFilePath, $html);
-	        }
-	        else {
-	        	$html = file_get_contents($htmlFilePath);
-		        $html = preg_replace('#<script(.*?)>(.*?)</script>#is', '', $html);
-	        }
-	        $products[] = [
-	        	'category' => $category['name'],
-	        	'categoryPage' => $page,
-	         ];
-
-	        $this->crawler = new Crawler($html);
-	        $items = $this->crawler->filter('.product-grid div .product');
-			if ($items->count()) {
-	            $items->each(function (Crawler $product) use (&$products){
-					$url   = $product->filter('.imagestik a')->attr('href');
-					$name  = $product->filter('.name')->text();
-					$model = $product->filter('.model')->text();
-					if ($product->filter('#pcr .price') != null){
-						$oldPrice = trim($product->filter('#pcr .price')->text());
-						$newPrice = trim($product->filter('#pcr .price')->text());
-					}
-					elseif ($product->filter('#pcr .price')->text()) {
-						$oldPrice = trim($product->filter('#pcr .price .price-old')->text());
-						$newPrice = trim($product->filter('#pcr .price .price-new')->text());
-					}
-	                $products[] = [
-	                    'url' => $url,
-	                    'name' => $name,
-	                    'model' => $model,
-	                    'oldPrice' => $oldPrice,
-	                    'newPrice' => $newPrice,
-	                ];
-	            });
-	        }
+        // pre($categories,1);
+        foreach ($categories as $category) {
+            $categoryUrl = $category['url'];
+            $categoryName = $category['name'];
+            for ($page = 1; $page<=4; $page++){
+                $pageUrl = $categoryUrl . '?page=' . $page;
+                $htmlFilePath = '../storage/' . $categoryName . $page . '.html'; 
+                if (!file_exists($htmlFilePath)){
+                    $html = file_get_contents($pageUrl);
+                    $html = preg_replace('#<script(.*?)>(.*?)</script>#is', '', $html);
+                    file_put_contents($htmlFilePath, $html);
+                }
+                else {
+                    $html = file_get_contents($htmlFilePath);
+                    $html = preg_replace('#<script(.*?)>(.*?)</script>#is', '', $html);
+                }
+                $this->crawler = new Crawler($html);
+                $items = $this->crawler->filter('.product-grid div .product');
+                $items->each(function (Crawler $product) use (&$products, $categoryName){
+                    $url        = $product->filter('.imagestik a')->attr('href');
+                    $name       = $product->filter('.name')->text();
+                    $model      = $product->filter('.model')->text();
+                    $products[] = [
+                        'url'          => $url,
+                        'name'         => $name,
+                        'model'        => str_replace ('модель ', '', $model),
+                        'categoryName' => $categoryName,
+                    ];
+                });
+            }
         }
-					pre($products);
-        return $products;
+
+                 // pre($products);
+        foreach ($products as $product) {
+            $productUrl  = $product['url'];
+            $productName = $product['name'];
+            $productCategory = $product['categoryName'];
+            $htmlFilePath = '../storage/' . md5($productCategory) . md5($productName) . '.html'; 
+            // pre($htmlFilePath);
+            if (!file_exists($htmlFilePath)){
+                    $html = file_get_contents($productUrl);
+                    $html = preg_replace('#<script(.*?)>(.*?)</script>#is', '', $html);
+                    file_put_contents($htmlFilePath, $html);
+                }
+                else {
+                    $html = file_get_contents($htmlFilePath);
+                    $html = preg_replace('#<script(.*?)>(.*?)</script>#is', '', $html);
+                }
+                $this->crawler = new Crawler($html);
+                $price       = trim($this->crawler->filter('.wrap-col .wrap-item-price')->text());
+                $price       = stristr($price, 'Цена');
+                $description = trim($this->crawler->filter('.right #tab-description')->text());
+                pre($description,);
+        }
+
  		
  	}
         
