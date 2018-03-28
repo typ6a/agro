@@ -1,3 +1,7 @@
 .env
 nbproject/
 storage
+public/data/images/*
+!public/data/images/index.html
+/public/storage
+/storage/*
